@@ -19,21 +19,23 @@ def main():
   # setting
   # ---------------------------------------------------------------------------------------------------
   # ---------------------------------------------------------------------------------------------------
-  dt    = 0.1   # s  
-  m     = 10.0  # kg
-  v     = 15e3  # m/s
-  alt   = 200e3 # m
+  dt    = 0.1   # time step, s 
+  m     = 10.0  # mass, kg
+  v     = 15e3  # velosity, m/s
+  alt   = 200e3 # altitude, m
   gam   = -11   # deg
   theta = 0     # deg
 
-  Cd = 1.0                 # -
-  Cl = 0.0                 # -
-  S  = math.pi * 0.4**2    # m^2
-  l  = 0.8                 # m
+  Cd = 1.0                 # drag coef, -
+  Cl = 0.0                 # lift coef, -
+  S  = math.pi * 0.4**2    # Area, m^2
+  l  = 0.8                 # length, m
+  Rn = 0.2                 # nose radius, m
+  tem_w = 300              # temperature at wall, K
   
-  atm  = "atmospheremodel.txt"
-  outf = "output.dat"
-  timeInt = 1              # 1:1st-euler, 2:4RK
+  atm  = "atmospheremodel.txt" # atmosphere model from ncep
+  outf = "output.dat"          # output
+  timeInt = 1                  # time int, 1:1st-euler, 2:4RK
   # ---------------------------------------------------------------------------------------------------
   # ---------------------------------------------------------------------------------------------------
   # const
@@ -43,6 +45,7 @@ def main():
   M = np.array([0.028, 0.014, 0.032, 0.016])     # kg/mol, N2, N, O2, O
   Cv = np.array([2.5, 1.5, 2.5, 1.5])     # kg/mol, N2, N, O2, O
   Cp = np.array([3.5, 2.5, 3.5, 2.5])     # kg/mol, N2, N, O2, O
+  rhos = 1.230             # density at sea level, kg/m^3
   # ---------------------------------------------------------------------------------------------------
 
   # --------------------------------------
@@ -73,13 +76,13 @@ def main():
   Q[2] = r
   Q[3] = theta
   
-  phyval = np.zeros(11) # time[s], v[m/s], gamma[rad], alt[m], theta[rad], rho[kg/m^3], tem[K], pre[Pa], dynamic pre[Pa], Re, Ma
-  input_phyval(phyval, t, Q, alt, rho, tem, l, chem, M, R, Cp, Cv)
+  phyval = np.zeros(14) # time[s], v[m/s], gamma[rad], alt[m], theta[rad], rho[kg/m^3], tem[K], pre[Pa], dynamic pre[Pa], Re, Ma, qc[W/m^2], qr[W/m^2], qt[W/m^2]
+  input_phyval(phyval, t, Q, alt, rho, tem, l, chem, M, R, Cp, Cv, tem_w, Rn, rhos)
 
   with open(outf,"w") as f:
     # time[s], v[m/s], gamma[rad], alt[m], theta[rad], rho[kg/m^3], tem[K], pre[Pa], dynamic pre[Pa], Re, Ma
     f.write("time[s], v[m/s], gam[deg], alt[m], theta[deg], density[kg/m^3], temperature[K], ")
-    f.write("pressure[Pa], dynamic pressure[Pa], Re, Ma")
+    f.write("pressure[Pa], dynamic pressure[Pa], Re, Ma, qc[W/m^2], qr[W/m^2], qt[W/m^2]")
     f.write("\n")
   #end
   output(outf, phyval)
@@ -112,7 +115,7 @@ def main():
     rho, tem, chem = interpolate(alt, atm_den, atm_tem, atm_alt, atm_rat, chem)     # kg/m^3, K
 
     # output
-    input_phyval(phyval, t, Q, alt, rho, tem, l, chem, M, R, Cp, Cv)
+    input_phyval(phyval, t, Q, alt, rho, tem, l, chem, M, R, Cp, Cv, tem_w, Rn, rhos)
     output(outf, phyval)
 
     # print
@@ -215,17 +218,39 @@ def interpolate_xxx(alt, atm_alt, atm_xxx, i):
 # --------------------------------------
 # calculate physical value
 # --------------------------------------
-def input_phyval(phyval, t, Q, alt, rho, tem, l, chem, M, R, Cp, Cv):
-  # time[s], v[m/s], gamma[rad], alt[m], theta[rad], rho[kg/m^3], tem[K], pre[Pa], dynamic pre[Pa], Re, Ma
+def input_phyval(phyval, t, Q, alt, rho, tem, l, chem, M, R, Cp, Cv, tem_w, Rn, rhos):
+  # time[s], v[m/s], gamma[rad], alt[m], theta[rad], rho[kg/m^3], tem[K], pre[Pa], dynamic pre[Pa], Re, Ma, qc[W/m^2], qr[W/m^2], qt[W/m^2]
   v     = Q[0]
   gam   = Q[1] * 180/math.pi
   theta = Q[3] * 180/math.pi
 
   Rd = R / (np.dot(chem[:], M[:]))
-  k  = np.dot(chem[:], Cp[:] / Cv[:])
+  Cp_hat = np.dot(chem[:], Cp[:])
+  Cv_hat = np.dot(chem[:], Cv[:])
+  k  = Cp_hat / Cv_hat
 
   a = (k * Rd * tem)**0.5
   mu = 1.82e-5 * (tem/293.15)**1.5 * (293.15 + 117)/(tem + 117)
+  
+  #---------------------------
+  # Detra-Kemp-Riddel
+  
+  hs  = 0.5*v**2 + Cp_hat*tem
+  hw  = Cp_hat*tem_w
+  hw0 = Cp_hat*300.0
+  qc = 110.35/Rn**0.5 * (rho/rhos)**0.5 * (v/7.925)**3.15 * (hs-hw)/(hs-hw0)
+  #---------------------------
+  
+  #---------------------------
+  # Tauber, Michael E., and Kenneth Sutton.
+  # "Stagnation-point radiative heating relations for Earth and Mars entries." 
+  # Journal of Spacecraft and Rockets 28.1 (1991): 40-42.
+  a_tauber = 1.072e6 * v**(-1.88) * rho**(-0.325)
+  fEV = fev_tauber(v)
+  qr = 4.736e4 * Rn**a_tauber * rho**1.22 *fEV
+  #---------------------------
+
+  qt = qc + qr
 
   phyval[0]  = t
   phyval[1]  = v
@@ -238,6 +263,9 @@ def input_phyval(phyval, t, Q, alt, rho, tem, l, chem, M, R, Cp, Cv):
   phyval[8]  = 0.5 * rho * v**2
   phyval[9]  = rho * v * l / mu
   phyval[10] = v / a
+  phyval[11] = qc
+  phyval[12] = qr
+  phyval[13] = qt
 
   return phyval
 #end
@@ -246,13 +274,43 @@ def input_phyval(phyval, t, Q, alt, rho, tem, l, chem, M, R, Cp, Cv):
 # output
 # --------------------------------------
 def output(fff, val):
-  with open(fff,"a") as f:
-    for i in range(len(val)):
-      f.write("{:.6e}".format(val[i]))
-      f.write(" ")
+  if val[3] > 0 :
+    with open(fff,"a") as f:
+      for i in range(len(val)):
+        f.write("{:.6e}".format(val[i]))
+        f.write(" ")
+      #end
+      f.write("\n")
     #end
-    f.write("\n")
   #end
+#end
+
+# --------------------------------------
+# tauber Radiative heating velocity functions for Earth
+# --------------------------------------
+def fev_tauber(v):
+  fev = 0
+  tau_v = [9000,  9250,  9500,  9750, 10000, 10250,
+          10500, 10750, 11000, 11500, 12000, 12500,
+          13000, 13500, 14000, 14500, 15000, 15500, 16000]
+  tau_fEv = [1.5, 4.3, 9.7, 19.5, 35, 55, 
+              81, 115, 151, 238, 359, 495,
+              660, 850, 1065, 1313, 1550, 1780, 2040]
+  n = len(tau_v)
+  
+  for i in range(n):
+    if tau_v[i] <= v and v <= tau_v[i+1]:    
+      fev = interpolate_xxx(v, tau_v, tau_fEv, i)
+      break
+    #end
+  #end
+  if v < tau_v[0]:
+    fev = tau_fEv[0]
+  elif v > tau_v[n-1]:
+    fev = tau_fEv[n-1]
+  #end
+
+  return fev
 #end
 
 # --------------------------------------------------------
