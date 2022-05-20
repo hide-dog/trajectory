@@ -110,7 +110,7 @@ def interpo(alt, atm_den, atm_alt):
 
 def output(fff, Q, RE, t, rho):
   with open(fff,"a") as f:
-    f.write("{:.1e}".format(t))
+    f.write("{:.6e}".format(t))
     f.write(" ")
     f.write("{:.6e}".format(Q[0]))
     f.write(" ")
