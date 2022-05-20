@@ -1,5 +1,5 @@
 # ---------------------
-http://ccmc.gsfc.nasa.gov/modelweb/models/nrlmsise00.php
+https://kauai.ccmc.gsfc.nasa.gov/instantrun/msis
 # ---------------------
 
 Input parameters
