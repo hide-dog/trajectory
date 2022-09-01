@@ -19,19 +19,21 @@ def main():
   # setting
   # ---------------------------------------------------------------------------------------------------
   # ---------------------------------------------------------------------------------------------------
-  dt    = 0.1   # time step, s 
-  m     = 10.0  # mass, kg
-  v     = 15e3  # velosity, m/s
-  alt   = 200e3 # altitude, m
-  gam   = -11   # deg
-  theta = 0     # deg
-
-  Cd = 1.0                 # drag coef, -
-  Cl = 0.0                 # lift coef, -
-  S  = math.pi * 0.4**2    # Area, m^2
-  l  = 0.8                 # length, m
+  # hayabusa condition
+  dt     = 0.1   # s
+  m      = 16.0  # kg
+  v      = 12e3 # m/s
+  alt    = 200e3  # m
+  gam    = -12   # deg
+  theta  = 0     # deg
+  Cd = 1.0                 # -
+  Cl = 0.0                 # -
+  S  = math.pi * 0.2**2    # m^2
+  
+  l  = 0.4                 # length, m
   Rn = 0.2                 # nose radius, m
   tem_w = 300              # temperature at wall, K
+  # ----
   
   atm  = "atmospheremodel.txt" # atmosphere model from ncep
   outf = "output.dat"          # output
@@ -233,8 +235,9 @@ def input_phyval(phyval, t, Q, alt, rho, tem, l, chem, M, R, Cp, Cv, tem_w, Rn, 
   mu = 1.82e-5 * (tem/293.15)**1.5 * (293.15 + 117)/(tem + 117)
   
   #---------------------------
-  # Detra-Kemp-Riddel
-  
+  # N.H. KEMP, F.R. RIDDELL, 
+  # "Heat Transfer to Satellite Vehicles Re-entering the Atmosphere",
+  # Journal of Jet Propulsion. 27 (1957) 132–137. doi:10.2514/8.12603.
   hs  = 0.5*v**2 + Cp_hat*tem
   hw  = Cp_hat*tem_w
   hw0 = Cp_hat*300.0
