@@ -20,30 +20,32 @@ def main():
   # ---------------------------------------------------------------------------------------------------
   # ---------------------------------------------------------------------------------------------------
   # hayabusa condition
-  dt     = 0.1   # s
-  m      = 16.3  # kg
-  v      = 11.8e3 # m/s
-  alt    = 200e3  # m
-  gam    = -12.7   # deg
-  theta  = 0     # deg
-  Cd = 1.147                 # -
-  Cl = 0.0                 # -
+  dt     = 0.1                # delta time, s
+  m      = 16.3               # mass, kg
+  v      = 11.8e3             # initial velosity, m/s
+  alt    = 200e3              # initial altitude, m
+  gam    = -8.7               # initial flight path angle, deg
+  theta  = 0                  # 0, deg
+  Cd = 1.147                  # drag coef, -
+  Cl = 0.0                    # lift coef, -
 
-  l  = 0.4                 # length, m
-  S  = math.pi * (l/2)**2    # m^2
+  l  = 0.4                    # diameter, m
+  S  = math.pi * (l/2)**2     # projected area, m^2
   
-  Rn = 0.2                 # nose radius, m
-  tem_w = 300              # temperature at wall, K
+  Rn = 0.2                    # nose radius, m
+  tem_w = 300                 # temperature at wall, K
   # ----
   
-  atm  = "atmospheremodel.txt" # atmosphere model from ncep
-  outf = "output_4th.dat"          # output
-  timeInt = 1                  # time int, 1:1st-euler, 2:4RK
+  atm  = "atmospheremodel.txt" # atmosphere model
+  outf = "output_4th.dat"      # output file name
+  timeInt = 2                  # time int, 1:1st-euler, 2:4RK
+  # ----
+  stop_alt = 500e3             # altitude when cal is stopped
   # ---------------------------------------------------------------------------------------------------
   # ---------------------------------------------------------------------------------------------------
   # const
   RE = 6.378e6             # m
-  g  = 9.81                 # m/s^2
+  g  = 9.81                # m/s^2
   R  = 8.314               # J/K/mol
   M = np.array([0.028, 0.014, 0.032, 0.016])     # kg/mol, N2, N, O2, O
   Cv = np.array([2.5, 1.5, 2.5, 1.5])     # kg/mol, N2, N, O2, O
@@ -94,7 +96,7 @@ def main():
   # --------------------------------------
   # loop
   # ---------------------------------------------------------------------------------------------------
-  while r > RE :
+  while r > RE and r < stop_alt+RE:
     # time step
     t  += dt
 
