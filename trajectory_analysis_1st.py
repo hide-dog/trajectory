@@ -11,20 +11,20 @@ def main():
   # --------------------------------------
   # setting
   # --------------------------------------
-  # hayabusa condition
   dt     = 0.1   # s
-  m      = 16.0  # kg
-  v      = 12e3 # m/s
+  m      = 16.3  # kg
+  v      = 11.8e3 # m/s
   alt    = 200e3  # m
-  gam    = -12   # deg
+  gam    = -12.7   # deg
   theta  = 0     # deg
-  Cd = 1.0                 # -
+  Cd = 1.147               # -
   Cl = 0.0                 # -
-  S  = math.pi * 0.2**2    # m^2
-  # ----
+
+  l  = 0.4                 # length, m
+  S  = math.pi * (l/2)**2    # m^2
 
   atm  = "atmospheremodel.txt"
-  outf = "output.dat"
+  outf = "output_1st.dat"
 
   # const
   RE = 6.378e6             # m

@@ -21,28 +21,29 @@ def main():
   # ---------------------------------------------------------------------------------------------------
   # hayabusa condition
   dt     = 0.1   # s
-  m      = 16.0  # kg
-  v      = 12e3 # m/s
+  m      = 16.3  # kg
+  v      = 11.8e3 # m/s
   alt    = 200e3  # m
-  gam    = -12   # deg
+  gam    = -12.7   # deg
   theta  = 0     # deg
-  Cd = 1.0                 # -
+  Cd = 1.147                 # -
   Cl = 0.0                 # -
-  S  = math.pi * 0.2**2    # m^2
-  
+
   l  = 0.4                 # length, m
+  S  = math.pi * (l/2)**2    # m^2
+  
   Rn = 0.2                 # nose radius, m
   tem_w = 300              # temperature at wall, K
   # ----
   
   atm  = "atmospheremodel.txt" # atmosphere model from ncep
-  outf = "output.dat"          # output
+  outf = "output_4th.dat"          # output
   timeInt = 1                  # time int, 1:1st-euler, 2:4RK
   # ---------------------------------------------------------------------------------------------------
   # ---------------------------------------------------------------------------------------------------
   # const
   RE = 6.378e6             # m
-  g  = 9.8                 # m/s^2
+  g  = 9.81                 # m/s^2
   R  = 8.314               # J/K/mol
   M = np.array([0.028, 0.014, 0.032, 0.016])     # kg/mol, N2, N, O2, O
   Cv = np.array([2.5, 1.5, 2.5, 1.5])     # kg/mol, N2, N, O2, O
@@ -78,13 +79,13 @@ def main():
   Q[2] = r
   Q[3] = theta
   
-  phyval = np.zeros(14) # time[s], v[m/s], gamma[rad], alt[m], theta[rad], rho[kg/m^3], tem[K], pre[Pa], dynamic pre[Pa], Re, Ma, qc[W/m^2], qr[W/m^2], qt[W/m^2]
-  input_phyval(phyval, t, Q, alt, rho, tem, l, chem, M, R, Cp, Cv, tem_w, Rn, rhos)
+  phyval = np.zeros(15) # time[s], v[m/s], gamma[rad], alt[m], theta[rad], rho[kg/m^3], tem[K], pre[Pa], dynamic pre[Pa], Re, Ma, G[G], qc[W/m^2], qr[W/m^2], qt[W/m^2]
+  input_phyval(phyval, t, Q, alt, rho, tem, l, chem, M, R, Cp, Cv, tem_w, Rn, rhos, Cd, m, g)
 
   with open(outf,"w") as f:
     # time[s], v[m/s], gamma[rad], alt[m], theta[rad], rho[kg/m^3], tem[K], pre[Pa], dynamic pre[Pa], Re, Ma
     f.write("time[s], v[m/s], gam[deg], alt[m], theta[deg], density[kg/m^3], temperature[K], ")
-    f.write("pressure[Pa], dynamic pressure[Pa], Re, Ma, qc[W/m^2], qr[W/m^2], qt[W/m^2]")
+    f.write("pressure[Pa], dynamic pressure[Pa], Re, Ma, G[G], qc[MW/m^2], qr[MW/m^2], qt[MW/m^2]")
     f.write("\n")
   #end
   output(outf, phyval)
@@ -117,7 +118,7 @@ def main():
     rho, tem, chem = interpolate(alt, atm_den, atm_tem, atm_alt, atm_rat, chem)     # kg/m^3, K
 
     # output
-    input_phyval(phyval, t, Q, alt, rho, tem, l, chem, M, R, Cp, Cv, tem_w, Rn, rhos)
+    input_phyval(phyval, t, Q, alt, rho, tem, l, chem, M, R, Cp, Cv, tem_w, Rn, rhos, Cd, m, g)
     output(outf, phyval)
 
     # print
@@ -220,8 +221,8 @@ def interpolate_xxx(alt, atm_alt, atm_xxx, i):
 # --------------------------------------
 # calculate physical value
 # --------------------------------------
-def input_phyval(phyval, t, Q, alt, rho, tem, l, chem, M, R, Cp, Cv, tem_w, Rn, rhos):
-  # time[s], v[m/s], gamma[rad], alt[m], theta[rad], rho[kg/m^3], tem[K], pre[Pa], dynamic pre[Pa], Re, Ma, qc[W/m^2], qr[W/m^2], qt[W/m^2]
+def input_phyval(phyval, t, Q, alt, rho, tem, l, chem, M, R, Cp, Cv, tem_w, Rn, rhos, Cd, m, g):
+  # time[s], v[m/s], gamma[rad], alt[m], theta[rad], rho[kg/m^3], tem[K], pre[Pa], dynamic pre[Pa], Re, Ma, G[G], qc[W/m^2], qr[W/m^2], qt[W/m^2]
   v     = Q[0]
   gam   = Q[1] * 180/math.pi
   theta = Q[3] * 180/math.pi
@@ -230,9 +231,11 @@ def input_phyval(phyval, t, Q, alt, rho, tem, l, chem, M, R, Cp, Cv, tem_w, Rn, 
   Cp_hat = np.dot(chem[:], Cp[:])
   Cv_hat = np.dot(chem[:], Cv[:])
   k  = Cp_hat / Cv_hat
-
+  
   a = (k * Rd * tem)**0.5
   mu = 1.82e-5 * (tem/293.15)**1.5 * (293.15 + 117)/(tem + 117)
+
+  ig = 0.5 * rho * v**2 * (l**2/4*math.pi) * Cd/ m/ g
   
   #---------------------------
   # N.H. KEMP, F.R. RIDDELL, 
@@ -240,17 +243,22 @@ def input_phyval(phyval, t, Q, alt, rho, tem, l, chem, M, R, Cp, Cv, tem_w, Rn, 
   # Journal of Jet Propulsion. 27 (1957) 132–137. doi:10.2514/8.12603.
   hs  = 0.5*v**2 + Cp_hat*tem
   hw  = Cp_hat*tem_w
-  hw0 = Cp_hat*300.0
-  qc = 110.35/Rn**0.5 * (rho/rhos)**0.5 * (v/7.925)**3.15 * (hs-hw)/(hs-hw0)
+  hw0 = Cp_hat*tem_w
+  qc = 1.1035*10**4 / Rn**0.5 * (rho/rhos)**0.5 * (v/7925)**3.15 * (hs-hw)/(hs-hw0) # 100 MW/m^2
+  # print(1.1035*10**4 / Rn**0.5)
+  # print((rho/rhos)**0.5)
+  # print((v/7.925)**3.15)
+  # print((hs-hw)/(hs-hw0))
+  # print(qc/100)
   #---------------------------
   
   #---------------------------
   # Tauber, Michael E., and Kenneth Sutton.
   # "Stagnation-point radiative heating relations for Earth and Mars entries." 
   # Journal of Spacecraft and Rockets 28.1 (1991): 40-42.
-  a_tauber = 1.072e6 * v**(-1.88) * rho**(-0.325)
+  a_tauber = 1.072*10**6 * v**(-1.88) * rho**(-0.325)
   fEV = fev_tauber(v)
-  qr = 4.736e4 * Rn**a_tauber * rho**1.22 *fEV
+  qr = 4.736*10**4 * Rn**a_tauber * rho**1.22 *fEV # 100 MW/m^2
   #---------------------------
 
   qt = qc + qr
@@ -266,9 +274,10 @@ def input_phyval(phyval, t, Q, alt, rho, tem, l, chem, M, R, Cp, Cv, tem_w, Rn, 
   phyval[8]  = 0.5 * rho * v**2
   phyval[9]  = rho * v * l / mu
   phyval[10] = v / a
-  phyval[11] = qc
-  phyval[12] = qr
-  phyval[13] = qt
+  phyval[11] = ig
+  phyval[12] = qc/100
+  phyval[13] = qr/100
+  phyval[14] = qt/100
 
   return phyval
 #end
